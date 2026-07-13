@@ -1,15 +1,12 @@
-## Flipper Apps Catalog manifest (draft for PR)
-## Place at: applications/Tools/period_tracker/manifest.yml
-##
-## After pushing the source repo, set commit_sha to that full SHA, then validate:
-##   python3 tools/bundle.py --nolint applications/Tools/period_tracker/manifest.yml bundle.zip
+## Flipper Apps Catalog manifest
+## Submitted PR: https://github.com/flipperdevices/flipper-application-catalog/pull/1129
+## Catalog path: applications/Tools/period_tracker/manifest.yml
 
 sourcecode:
   type: git
   location:
     origin: https://github.com/gorshunovr/period_tracker.git
-    commit_sha: REPLACE_WITH_FULL_COMMIT_SHA
-
+    commit_sha: 193770d1a4421d681ed736ee455e15fc36019bfd
 description: "@docs/catalog_description.md"
 changelog: "@docs/changelog.md"
 screenshots:
