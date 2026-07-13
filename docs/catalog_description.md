@@ -4,14 +4,14 @@ A menstrual cycle tracker for Flipper Zero. Track cycles for multiple people wit
 
 ## Features
 
-- **Multi-user profiles** — track cycles for family members separately
-- **Predictions** — next period, PMS window, ovulation, and fertile window
-- **Event logging** — log period starts and symptoms with a date picker
-- **Statistical learning** — predictions adapt from logged cycle history
-- **Daily digest** — upcoming events and status for all profiles at a glance
-- **Cycle statistics** — regularity classification and confidence ranges
-- **PIN protection** — optional 4-digit PIN with lockout after failed attempts
-- **Local storage** — CSV event logs and profile files on the SD card; no network or cloud
+- **Multi-user profiles** - track cycles for family members separately
+- **Predictions** - next period, PMS window, ovulation, and fertile window
+- **Event logging** - log period starts and symptoms with a date picker
+- **Statistical learning** - predictions adapt from logged cycle history
+- **Daily digest** - upcoming events and status for all profiles at a glance
+- **Cycle statistics** - regularity classification and confidence ranges
+- **PIN protection** - optional 4-digit PIN with lockout after failed attempts
+- **Local storage** - CSV event logs and profile files on the SD card; no network or cloud
 
 ## How to use
 
@@ -22,7 +22,7 @@ A menstrual cycle tracker for Flipper Zero. Track cycles for multiple people wit
 
 ## Data storage
 
-- Files live on the Flipper SD card under `/ext/apps_data/period_tracker/`
+- Files live on the Flipper SD card under /ext/apps_data/period_tracker/
 - No telemetry and no internet access
 - The SD card is not encrypted by this app; protect physical access as needed
 
