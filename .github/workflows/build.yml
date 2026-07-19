@@ -1,7 +1,7 @@
 name: "FAP: Build for multiple SDK sources"
-# This will build your app for dev and release channels on GitHub. 
-# It will also build your app every day to make sure it's up to date with the latest SDK changes.
-# See https://github.com/marketplace/actions/build-flipper-application-package-fap for more information
+# Build the app for Flipper release and dev SDK channels.
+# Inlined (instead of flipperzero-ufbt-action) so we can pin Node 24-based actions
+# and avoid Node.js 20 deprecation warnings on GitHub runners.
 
 on:
   push:
@@ -23,19 +23,41 @@ jobs:
             sdk-channel: dev
           - name: release channel
             sdk-channel: release
-          # You can add unofficial channels here. See ufbt action docs for more info.
     name: 'ufbt: Build for ${{ matrix.name }}'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build with ufbt
-        uses: flipperdevices/flipperzero-ufbt-action@v0.1
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install ufbt
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade ufbt
+
+      - name: Update SDK (${{ matrix.sdk-channel }})
+        run: ufbt update --channel ${{ matrix.sdk-channel }}
+
+      - name: Build app
         id: build-app
-        with:
-          sdk-channel: ${{ matrix.sdk-channel }}
+        run: |
+          set -euo pipefail
+          ufbt
+          API_VERSION="$(ufbt -s get_apiversion || echo 0.0)"
+          STATUS_JSON="$(ufbt status --json)"
+          TARGET="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("target",""))' <<<"$STATUS_JSON")"
+          VERSION="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' <<<"$STATUS_JSON")"
+          {
+            echo "api_version=$API_VERSION"
+            echo "suffix=${TARGET}-api-${API_VERSION}-${VERSION}"
+          } >> "$GITHUB_OUTPUT"
+          ls -la dist/
+
       - name: Upload app artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          # See ufbt action docs for other output variables
           name: ${{ github.event.repository.name }}-${{ steps.build-app.outputs.suffix }}
-          path: ${{ steps.build-app.outputs.fap-artifacts }}
+          path: dist/*.fap
