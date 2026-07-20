@@ -85,7 +85,9 @@ static bool period_tracker_custom_event_callback(void* context, uint32_t event) 
     return scene_manager_handle_custom_event(app->scene_manager, event);
 }
 
-// Create app data directory if it doesn't exist (SDK APP_DATA_PATH → /ext/apps_data/<appid>/)
+// Ensure app data directory exists.
+// APP_DATA_PATH("") expands to "/data/" (trailing slash) which is FSE_INVALID_NAME.
+// Use STORAGE_APP_DATA_PATH_PREFIX ("/data") for directory ops; file paths use APP_DATA_PATH("name").
 void period_tracker_create_data_dir(PeriodTrackerApp* app) {
     Storage* storage = app->storage;
 
@@ -97,13 +99,16 @@ void period_tracker_create_data_dir(PeriodTrackerApp* app) {
         return;
     }
 
-    FS_Error err = storage_common_mkdir(storage, APP_DATA_PATH(""));
-    FURI_LOG_I(TAG, "mkdir APP_DATA_PATH result: %d (2=already exists is OK)", err);
-
-    if(storage_common_exists(storage, APP_DATA_PATH(""))) {
+    FS_Error err = storage_common_mkdir(storage, STORAGE_APP_DATA_PATH_PREFIX);
+    // FSE_EXIST means the directory is already there — not a failure.
+    if(err == FSE_OK || err == FSE_EXIST) {
         FURI_LOG_I(TAG, "App data directory ready");
     } else {
-        FURI_LOG_E(TAG, "Failed to create app data directory!");
+        FURI_LOG_E(
+            TAG,
+            "Failed to create app data directory: %s (%d)",
+            filesystem_api_error_get_desc(err),
+            err);
     }
 }
 
