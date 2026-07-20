@@ -146,6 +146,9 @@ void period_tracker_scene_edit_profile_on_enter(void* context) {
     // Save button
     variable_item_list_add(variable_item_list, "Save Changes", 0, NULL, app);
 
+    // Shared VariableItemList can retain a previous selection index.
+    variable_item_list_set_selected_item(variable_item_list, 0);
+
     view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewVariableItemList);
 }
 
