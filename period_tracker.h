@@ -14,6 +14,7 @@
 #include <datetime/datetime.h>
 #include <notification/notification_messages.h>
 #include "period_tracker_models.h"
+#include "period_tracker_pin_input.h"
 
 #define TAG "PeriodTracker"
 
@@ -31,6 +32,7 @@ typedef enum {
     PeriodTrackerViewWidget,
     PeriodTrackerViewVariableItemList,
     PeriodTrackerViewNumberInput,
+    PeriodTrackerViewPinInput,
     PeriodTrackerViewTextBox,
 } PeriodTrackerView;
 
@@ -66,6 +68,7 @@ struct PeriodTrackerApp {
     Widget* widget;
     VariableItemList* variable_item_list;
     NumberInput* number_input;
+    PinInput* pin_input;
     TextBox* text_box;
     FuriString* text_box_store;
     Storage* storage;
@@ -74,7 +77,8 @@ struct PeriodTrackerApp {
     // App state
     char text_buffer[128];
     uint32_t pin_code;
-    uint32_t pin_first_entry;
+    uint32_t pin_first_entry; // first of two entries during PIN setup
+    uint32_t pin_draft; // last PIN submitted from PinInput view
     uint8_t pin_fails;
     bool pin_locked;
     bool pin_set;

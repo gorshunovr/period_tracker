@@ -171,12 +171,17 @@ static PeriodTrackerApp* period_tracker_app_alloc() {
         PeriodTrackerViewVariableItemList,
         variable_item_list_get_view(app->variable_item_list));
 
-    // Number Input
+    // Number Input (dates / numeric settings — not used for PIN)
     app->number_input = number_input_alloc();
     view_dispatcher_add_view(
         app->view_dispatcher,
         PeriodTrackerViewNumberInput,
         number_input_get_view(app->number_input));
+
+    // Custom 4-digit PIN entry (empty start, masked)
+    app->pin_input = pin_input_alloc();
+    view_dispatcher_add_view(
+        app->view_dispatcher, PeriodTrackerViewPinInput, pin_input_get_view(app->pin_input));
 
     // Text Box
     app->text_box = text_box_alloc();
@@ -235,6 +240,7 @@ static void period_tracker_app_free(PeriodTrackerApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, PeriodTrackerViewWidget);
     view_dispatcher_remove_view(app->view_dispatcher, PeriodTrackerViewVariableItemList);
     view_dispatcher_remove_view(app->view_dispatcher, PeriodTrackerViewNumberInput);
+    view_dispatcher_remove_view(app->view_dispatcher, PeriodTrackerViewPinInput);
     view_dispatcher_remove_view(app->view_dispatcher, PeriodTrackerViewTextBox);
 
     // Free views
@@ -243,6 +249,7 @@ static void period_tracker_app_free(PeriodTrackerApp* app) {
     widget_free(app->widget);
     variable_item_list_free(app->variable_item_list);
     number_input_free(app->number_input);
+    pin_input_free(app->pin_input);
     text_box_free(app->text_box);
     furi_string_free(app->text_box_store);
 
