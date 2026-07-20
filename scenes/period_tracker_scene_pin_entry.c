@@ -1,6 +1,8 @@
 #include "../period_tracker.h"
 #include "../period_tracker_predictions.h"
 #include "../period_tracker_alert.h"
+#include "../period_tracker_csv.h"
+#include "../period_tracker_models.h"
 #include <furi.h>
 
 #define PIN_ENTRY_EVENT_ERROR_TIMEOUT 0xFE01u
@@ -64,31 +66,42 @@ bool period_tracker_scene_pin_entry_on_event(void* context, SceneManagerEvent ev
                 FURI_LOG_I(TAG, "PIN Entry: correct PIN entered, checking for alerts");
                 period_tracker_reset_pin_fails(app);
 
-                Prediction* today_predictions = malloc(sizeof(Prediction) * 20);
-                if(today_predictions) {
-                    uint16_t alert_count = get_today_predictions(
+                AppSettings settings;
+                app_settings_init(&settings);
+                settings_load(app->storage, &settings);
+                uint8_t lead_days = settings.alert_lead_days;
+                if(lead_days == 0) lead_days = 1;
+
+                Prediction* alert_predictions = malloc(sizeof(Prediction) * 20);
+                if(alert_predictions) {
+                    uint16_t alert_count = get_alert_predictions(
                         app->storage,
-                        today_predictions,
+                        alert_predictions,
                         20,
                         app->prediction_buffer,
-                        app->prediction_buffer_size);
-                    free(today_predictions);
+                        app->prediction_buffer_size,
+                        lead_days);
+                    free(alert_predictions);
 
                     scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneMainMenu);
 
                     if(alert_count > 0) {
                         FURI_LOG_I(
                             TAG,
-                            "PIN Entry: %u alerts for today, playing notification and navigating to Daily Digest",
-                            alert_count);
+                            "PIN Entry: %u alert(s) in next %u day(s), opening Daily Digest",
+                            alert_count,
+                            lead_days);
                         period_tracker_alert_notify_if_today(app->storage);
                         scene_manager_next_scene(
                             app->scene_manager, PeriodTrackerSceneDailyDigest);
                     } else {
-                        FURI_LOG_I(TAG, "PIN Entry: no alerts for today, staying on Main Menu");
+                        FURI_LOG_I(
+                            TAG,
+                            "PIN Entry: no alerts in next %u day(s), staying on Main Menu",
+                            lead_days);
                     }
                 } else {
-                    FURI_LOG_E(TAG, "PIN Entry: failed to allocate memory for today predictions");
+                    FURI_LOG_E(TAG, "PIN Entry: failed to allocate memory for alert predictions");
                     scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneMainMenu);
                 }
                 consumed = true;

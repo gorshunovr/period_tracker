@@ -2,9 +2,11 @@
 #include "../period_tracker_models.h"
 #include "../period_tracker_csv.h"
 
-// Scene state: how this scene was entered (drives back-navigation)
-#define EDIT_PROFILE_STATE_FROM_MENU     0
-#define EDIT_PROFILE_STATE_FROM_ADD_GIRL 1
+// Scene state: entry path and whether a result TextBox is showing
+#define EDIT_PROFILE_STATE_FROM_MENU      0
+#define EDIT_PROFILE_STATE_FROM_ADD_GIRL  1
+#define EDIT_PROFILE_STATE_RESULT_MENU    2
+#define EDIT_PROFILE_STATE_RESULT_ADD     3
 
 typedef enum {
     EditProfileItemCycleLength,
@@ -18,6 +20,40 @@ typedef enum {
 
 // Temporary storage for edited values
 static GirlProfile temp_profile;
+
+// Assumes app->text_box_store already holds the result body
+static void edit_profile_show_result_store(PeriodTrackerApp* app) {
+    furi_string_cat_str(app->text_box_store, "\n\nPress Back to continue.");
+    text_box_reset(app->text_box);
+    text_box_set_text(app->text_box, furi_string_get_cstr(app->text_box_store));
+    text_box_set_font(app->text_box, TextBoxFontText);
+    text_box_set_focus(app->text_box, TextBoxFocusStart);
+    view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewTextBox);
+}
+
+static void edit_profile_show_result(PeriodTrackerApp* app, const char* msg) {
+    furi_string_reset(app->text_box_store);
+    furi_string_set_str(app->text_box_store, msg);
+    edit_profile_show_result_store(app);
+}
+
+static void edit_profile_leave_result(PeriodTrackerApp* app) {
+    uint32_t state =
+        scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile);
+
+    if(state == EDIT_PROFILE_STATE_RESULT_ADD || state == EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
+        scene_manager_set_scene_state(
+            app->scene_manager, PeriodTrackerSceneEditProfile, EDIT_PROFILE_STATE_FROM_MENU);
+        scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneSeedHistory);
+    } else {
+        scene_manager_set_scene_state(
+            app->scene_manager, PeriodTrackerSceneEditProfile, EDIT_PROFILE_STATE_FROM_MENU);
+        if(!scene_manager_previous_scene(app->scene_manager)) {
+            view_dispatcher_switch_to_view(
+                app->view_dispatcher, PeriodTrackerViewVariableItemList);
+        }
+    }
+}
 
 static const char* const cycle_length_names[] = {"20", "21", "22", "23", "24", "25", "26",
                                                  "27", "28", "29", "30", "31", "32", "33",
@@ -158,9 +194,15 @@ bool period_tracker_scene_edit_profile_on_event(void* context, SceneManagerEvent
     bool consumed = false;
 
     if(event.type == SceneManagerEventTypeBack) {
-        // New profile: offer period history instead of returning to name entry
-        if(scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile) ==
-           EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
+        uint32_t state =
+            scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile);
+
+        if(state == EDIT_PROFILE_STATE_RESULT_MENU || state == EDIT_PROFILE_STATE_RESULT_ADD) {
+            // Dismiss scrollable save result
+            edit_profile_leave_result(app);
+            consumed = true;
+        } else if(state == EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
+            // New profile: offer period history instead of returning to name entry
             scene_manager_set_scene_state(
                 app->scene_manager, PeriodTrackerSceneEditProfile, EDIT_PROFILE_STATE_FROM_MENU);
             scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneSeedHistory);
@@ -191,42 +233,42 @@ bool period_tracker_scene_edit_profile_on_event(void* context, SceneManagerEvent
                 app->view_dispatcher, PeriodTrackerViewVariableItemList);
             consumed = true;
         } else if(event.event == PERIOD_TRACKER_EVENT_WIDGET_DISMISS) {
-            // OK on result screen
-            if(scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile) ==
-               EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
-                // After first-time profile setup, offer period history
+            // OK on load-error widget
+            edit_profile_leave_result(app);
+            consumed = true;
+        } else if(event.event == EditProfileItemSave) {
+            uint32_t entry_state =
+                scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile);
+            bool from_add = (entry_state == EDIT_PROFILE_STATE_FROM_ADD_GIRL);
+
+            if(profile_save(app->storage, &temp_profile)) {
+                furi_string_printf(
+                    app->text_box_store,
+                    "Profile Updated!\n\n"
+                    "Name: %s\n"
+                    "Cycle: %d days\n"
+                    "Period: %d days\n"
+                    "Contraception: %s\n"
+                    "PCOS: %s\n"
+                    "Menopausal: %s",
+                    temp_profile.name,
+                    temp_profile.cycle_length_days,
+                    temp_profile.period_length_days,
+                    temp_profile.uses_contraception ? "Yes" : "No",
+                    temp_profile.has_pcos ? "Yes" : "No",
+                    temp_profile.is_menopausal ? "Yes" : "No");
                 scene_manager_set_scene_state(
                     app->scene_manager,
                     PeriodTrackerSceneEditProfile,
-                    EDIT_PROFILE_STATE_FROM_MENU);
-                scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneSeedHistory);
-            } else {
-                // Return to previous (girl menu) or re-show edit list after error
-                if(!scene_manager_previous_scene(app->scene_manager)) {
-                    view_dispatcher_switch_to_view(
-                        app->view_dispatcher, PeriodTrackerViewVariableItemList);
-                }
-            }
-            consumed = true;
-        } else if(event.event == EditProfileItemSave) {
-            // Save the updated profile
-            if(profile_save(app->storage, &temp_profile)) {
-                char msg[128];
-                snprintf(
-                    msg,
-                    sizeof(msg),
-                    "Profile Updated!\n\n"
-                    "%s\n\n"
-                    "Cycle: %d days\n"
-                    "Period: %d days",
-                    temp_profile.name,
-                    temp_profile.cycle_length_days,
-                    temp_profile.period_length_days);
-                period_tracker_widget_show_message(app, msg, FontSecondary);
+                    from_add ? EDIT_PROFILE_STATE_RESULT_ADD : EDIT_PROFILE_STATE_RESULT_MENU);
+                edit_profile_show_result_store(app);
                 FURI_LOG_I(TAG, "Profile updated: %s", temp_profile.name);
             } else {
-                period_tracker_widget_show_message(
-                    app, "Error!\n\nFailed to save profile.", FontPrimary);
+                scene_manager_set_scene_state(
+                    app->scene_manager,
+                    PeriodTrackerSceneEditProfile,
+                    from_add ? EDIT_PROFILE_STATE_RESULT_ADD : EDIT_PROFILE_STATE_RESULT_MENU);
+                edit_profile_show_result(app, "Error!\n\nFailed to save profile.");
             }
             consumed = true;
         }
@@ -240,5 +282,7 @@ void period_tracker_scene_edit_profile_on_exit(void* context) {
     furi_assert(app);
     variable_item_list_reset(app->variable_item_list);
     text_input_reset(app->text_input);
+    text_box_reset(app->text_box);
+    furi_string_reset(app->text_box_store);
     widget_reset(app->widget);
 }
