@@ -4,6 +4,8 @@
 
 #define PIN_SETUP_STATE_FIRST_ENTRY   0
 #define PIN_SETUP_STATE_CONFIRM_ENTRY 1
+#define PIN_SETUP_STATE_RESULT_OK     2
+#define PIN_SETUP_STATE_RESULT_ERR    3
 
 #define PIN_SETUP_EVENT_SUCCESS   102
 #define PIN_SETUP_EVENT_MISMATCH  103
@@ -97,44 +99,39 @@ bool period_tracker_scene_pin_setup_on_event(void* context, SceneManagerEvent ev
                 settings.pin_enabled = true;
                 settings_save(app->storage, &settings);
 
-                widget_reset(app->widget);
-                widget_add_string_multiline_element(
-                    app->widget,
-                    64,
-                    32,
-                    AlignCenter,
-                    AlignCenter,
-                    FontPrimary,
+                scene_manager_set_scene_state(
+                    app->scene_manager, PeriodTrackerScenePinSetup, PIN_SETUP_STATE_RESULT_OK);
+                period_tracker_widget_show_message(
+                    app,
                     "PIN Saved!\n\n"
                     "Your PIN has been\n"
-                    "set successfully.");
+                    "set successfully.",
+                    FontPrimary);
             } else {
-                widget_reset(app->widget);
-                widget_add_string_multiline_element(
-                    app->widget,
-                    64,
-                    32,
-                    AlignCenter,
-                    AlignCenter,
-                    FontPrimary,
-                    "Error!\n\n"
-                    "Failed to save PIN.");
+                scene_manager_set_scene_state(
+                    app->scene_manager, PeriodTrackerScenePinSetup, PIN_SETUP_STATE_RESULT_ERR);
+                period_tracker_widget_show_message(
+                    app, "Error!\n\nFailed to save PIN.", FontPrimary);
             }
-            view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
             consumed = true;
         } else if(event.event == PIN_SETUP_EVENT_MISMATCH) {
-            widget_reset(app->widget);
-            widget_add_string_multiline_element(
-                app->widget,
-                64,
-                32,
-                AlignCenter,
-                AlignCenter,
-                FontPrimary,
+            scene_manager_set_scene_state(
+                app->scene_manager, PeriodTrackerScenePinSetup, PIN_SETUP_STATE_RESULT_ERR);
+            period_tracker_widget_show_message(
+                app,
                 "Error!\n\n"
                 "PINs do not match.\n\n"
-                "Press Back to try again.");
-            view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
+                "OK to try again.",
+                FontPrimary);
+            consumed = true;
+        } else if(event.event == PERIOD_TRACKER_EVENT_WIDGET_DISMISS) {
+            uint32_t state =
+                scene_manager_get_scene_state(app->scene_manager, PeriodTrackerScenePinSetup);
+            if(state == PIN_SETUP_STATE_RESULT_OK) {
+                scene_manager_previous_scene(app->scene_manager);
+            } else {
+                pin_setup_show_first(app);
+            }
             consumed = true;
         }
     }

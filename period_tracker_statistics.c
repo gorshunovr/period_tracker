@@ -42,7 +42,8 @@ bool calculate_cycle_statistics(
     // Open file for streaming
     File* file = storage_file_alloc(storage);
     if(!storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
-        FURI_LOG_E(TAG, "Failed to open events file for %s", girl_name);
+        // No events file yet (new profile) — not an error
+        FURI_LOG_I(TAG, "No events file yet for %s", girl_name);
         storage_file_free(file);
         return false;
     }

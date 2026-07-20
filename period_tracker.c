@@ -1,6 +1,8 @@
 #include "period_tracker.h"
 #include "period_tracker_alert.h"
 #include <furi_hal.h>
+#include <input/input.h>
+#include <gui/modules/widget_elements/widget_element.h>
 
 // Scene handlers array
 void (*const period_tracker_scene_on_enter_handlers[])(void*) = {
@@ -21,6 +23,7 @@ void (*const period_tracker_scene_on_enter_handlers[])(void*) = {
     period_tracker_scene_alert_settings_on_enter,
     period_tracker_scene_pin_settings_on_enter,
     period_tracker_scene_pin_setup_on_enter,
+    period_tracker_scene_seed_history_on_enter,
 };
 
 bool (*const period_tracker_scene_on_event_handlers[])(void*, SceneManagerEvent) = {
@@ -41,6 +44,7 @@ bool (*const period_tracker_scene_on_event_handlers[])(void*, SceneManagerEvent)
     period_tracker_scene_alert_settings_on_event,
     period_tracker_scene_pin_settings_on_event,
     period_tracker_scene_pin_setup_on_event,
+    period_tracker_scene_seed_history_on_event,
 };
 
 void (*const period_tracker_scene_on_exit_handlers[])(void*) = {
@@ -61,6 +65,7 @@ void (*const period_tracker_scene_on_exit_handlers[])(void*) = {
     period_tracker_scene_alert_settings_on_exit,
     period_tracker_scene_pin_settings_on_exit,
     period_tracker_scene_pin_setup_on_exit,
+    period_tracker_scene_seed_history_on_exit,
 };
 
 // Scene manager configuration
@@ -83,6 +88,26 @@ static bool period_tracker_custom_event_callback(void* context, uint32_t event) 
     furi_assert(context);
     PeriodTrackerApp* app = context;
     return scene_manager_handle_custom_event(app->scene_manager, event);
+}
+
+static void period_tracker_widget_ok_callback(GuiButtonType result, InputType type, void* context) {
+    UNUSED(result);
+    if(type != InputTypeShort) {
+        return;
+    }
+    PeriodTrackerApp* app = context;
+    view_dispatcher_send_custom_event(app->view_dispatcher, PERIOD_TRACKER_EVENT_WIDGET_DISMISS);
+}
+
+void period_tracker_widget_show_message(PeriodTrackerApp* app, const char* text, Font font) {
+    furi_assert(app);
+    furi_assert(text);
+    widget_reset(app->widget);
+    widget_add_string_multiline_element(
+        app->widget, 64, 26, AlignCenter, AlignCenter, font, text);
+    widget_add_button_element(
+        app->widget, GuiButtonTypeCenter, "OK", period_tracker_widget_ok_callback, app);
+    view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
 }
 
 // Ensure app data directory exists.

@@ -72,17 +72,8 @@ void period_tracker_scene_edit_profile_on_enter(void* context) {
 
     // Load current profile
     if(!profile_load(app->storage, app->current_girl_name, &temp_profile)) {
-        // Failed to load profile
-        widget_reset(app->widget);
-        widget_add_string_multiline_element(
-            app->widget,
-            64,
-            32,
-            AlignCenter,
-            AlignCenter,
-            FontPrimary,
-            "Error!\n\nFailed to load profile.");
-        view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
+        period_tracker_widget_show_message(
+            app, "Error!\n\nFailed to load profile.", FontPrimary);
         return;
     }
 
@@ -167,18 +158,12 @@ bool period_tracker_scene_edit_profile_on_event(void* context, SceneManagerEvent
     bool consumed = false;
 
     if(event.type == SceneManagerEventTypeBack) {
-        // If we came from Add Girl, skip back to Main Menu instead of returning
-        // to the name input. Otherwise use default back (returns to Girl Menu).
+        // New profile: offer period history instead of returning to name entry
         if(scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile) ==
            EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
             scene_manager_set_scene_state(
                 app->scene_manager, PeriodTrackerSceneEditProfile, EDIT_PROFILE_STATE_FROM_MENU);
-            if(!scene_manager_search_and_switch_to_previous_scene(
-                   app->scene_manager, PeriodTrackerSceneMainMenu)) {
-                // First-run flow: Main Menu isn't on the stack yet
-                scene_manager_search_and_switch_to_another_scene(
-                    app->scene_manager, PeriodTrackerSceneMainMenu);
-            }
+            scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneSeedHistory);
             consumed = true;
         }
     } else if(event.type == SceneManagerEventTypeCustom) {
@@ -205,11 +190,27 @@ bool period_tracker_scene_edit_profile_on_event(void* context, SceneManagerEvent
             view_dispatcher_switch_to_view(
                 app->view_dispatcher, PeriodTrackerViewVariableItemList);
             consumed = true;
+        } else if(event.event == PERIOD_TRACKER_EVENT_WIDGET_DISMISS) {
+            // OK on result screen
+            if(scene_manager_get_scene_state(app->scene_manager, PeriodTrackerSceneEditProfile) ==
+               EDIT_PROFILE_STATE_FROM_ADD_GIRL) {
+                // After first-time profile setup, offer period history
+                scene_manager_set_scene_state(
+                    app->scene_manager,
+                    PeriodTrackerSceneEditProfile,
+                    EDIT_PROFILE_STATE_FROM_MENU);
+                scene_manager_next_scene(app->scene_manager, PeriodTrackerSceneSeedHistory);
+            } else {
+                // Return to previous (girl menu) or re-show edit list after error
+                if(!scene_manager_previous_scene(app->scene_manager)) {
+                    view_dispatcher_switch_to_view(
+                        app->view_dispatcher, PeriodTrackerViewVariableItemList);
+                }
+            }
+            consumed = true;
         } else if(event.event == EditProfileItemSave) {
             // Save the updated profile
             if(profile_save(app->storage, &temp_profile)) {
-                // Show success message
-                widget_reset(app->widget);
                 char msg[128];
                 snprintf(
                     msg,
@@ -221,22 +222,11 @@ bool period_tracker_scene_edit_profile_on_event(void* context, SceneManagerEvent
                     temp_profile.name,
                     temp_profile.cycle_length_days,
                     temp_profile.period_length_days);
-                widget_add_string_multiline_element(
-                    app->widget, 64, 32, AlignCenter, AlignCenter, FontSecondary, msg);
-                view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
+                period_tracker_widget_show_message(app, msg, FontSecondary);
                 FURI_LOG_I(TAG, "Profile updated: %s", temp_profile.name);
             } else {
-                // Show error
-                widget_reset(app->widget);
-                widget_add_string_multiline_element(
-                    app->widget,
-                    64,
-                    32,
-                    AlignCenter,
-                    AlignCenter,
-                    FontPrimary,
-                    "Error!\n\nFailed to save profile.");
-                view_dispatcher_switch_to_view(app->view_dispatcher, PeriodTrackerViewWidget);
+                period_tracker_widget_show_message(
+                    app, "Error!\n\nFailed to save profile.", FontPrimary);
             }
             consumed = true;
         }
