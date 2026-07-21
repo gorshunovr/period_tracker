@@ -10,8 +10,8 @@ on:
       - master
   pull_request:
   schedule:
-    # daily build against latest SDK channels
-    - cron: "1 1 * * *"
+    # weekly build against latest SDK channels
+    - cron: "42 1 * * 5"
 
 jobs:
   ufbt-build:
